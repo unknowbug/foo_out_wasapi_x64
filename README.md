@@ -69,15 +69,15 @@ msbuild foo_out_wasapi_x64.vcxproj /p:Configuration=Release /p:Platform=x64
 
 ### 声音断裂 / 爆音 Stuttering / Crackling
 
-如果播放时出现声音断裂或爆音，请尝试增大 **Preferences → Playback → Output → Buffer length**（缓冲时间长度）：
+如果播放时出现声音断裂或爆音，请尝试调整 **Preferences → Playback → Output → Buffer length**（缓冲时间长度）：
 
-If you experience audio stuttering or crackling, try increasing the **Buffer length** setting under **Preferences → Playback → Output**.
+If you experience audio stuttering or crackling, try adjusting the **Buffer length** setting under **Preferences → Playback → Output**.
 
-将缓冲时长从默认的 1000ms 增大到 2000ms~5000ms 通常可以解决。
-Increasing from the default 1000ms to 2000ms–5000ms usually resolves the issue.
+蓝牙耳机通常需要**缩短**缓冲（如 50ms）才能正常播放；其他设备也可能需要根据实际情况调整。
+For Bluetooth headphones, **shortening** the buffer (e.g. 50ms) usually resolves the issue. Try different values to find what works for your device.
 
-> **原因**：WASAPI 独占模式下缓冲区由驱动的周期决定，某些设备的周期很短（如 10ms），fb2k 的默认缓冲无法填满。增大缓冲时长让 fb2k 有更多余量。
-> **Why**: In exclusive mode the buffer is determined by the device driver's period; some devices use very short periods (e.g. 10ms). A larger buffer gives fb2k more headroom to avoid underruns.
+> **原因**：WASAPI 独占模式下缓冲区由驱动周期决定。蓝牙 A2DP 的延迟较高，过大的缓冲反而可能导致 fb2k 的写入时机与蓝牙的传输周期错位。缩短缓冲让数据更及时地送达驱动。
+> **Why**: In exclusive mode the buffer aligns to the device driver's period. Bluetooth A2DP has high inherent latency; a larger buffer can cause timing misalignment with the Bluetooth transmission cycle. Shortening the buffer helps data reach the driver more promptly.
 
 ---
 
