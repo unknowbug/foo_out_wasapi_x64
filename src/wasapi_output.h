@@ -55,8 +55,10 @@ private:
 
     bool m_initialized = false;
     bool m_paused = false;
+    bool m_is_bluetooth = false;
     bool m_dither;
     bool m_is_float = false;
+    double m_current_volume = 1.0;
     t_uint32 m_bitdepth;
     UINT32 m_buffer_frames = 0;
     UINT32 m_padding = 0;
@@ -70,6 +72,8 @@ private:
     IAudioRenderClient * m_render_client = nullptr;
     IAudioEndpointVolume * m_endpoint_volume = nullptr;
     HANDLE m_event_handle = nullptr;
+
+    pfc::array_t<audio_sample> m_volume_buffer;
 };
 
 // --- Push variant ---

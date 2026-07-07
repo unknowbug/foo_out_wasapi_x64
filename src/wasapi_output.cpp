@@ -128,6 +128,17 @@ void wasapi_output::open(audio_chunk::spec_t const & spec)
         throw std::runtime_error("No audio device");
     m_device = dev;
 
+    // Detect Bluetooth devices (BTHENUM) to skip hardware volume
+    IPropertyStore * ps = nullptr;
+    if (SUCCEEDED(m_device->OpenPropertyStore(STGM_READ, &ps)) && ps) {
+        PROPVARIANT pv; PropVariantInit(&pv);
+        if (SUCCEEDED(ps->GetValue(PKEY_Device_EnumeratorName, &pv)) && pv.vt == VT_LPWSTR) {
+            m_is_bluetooth = (wcscmp(pv.pwszVal, L"BTHENUM") == 0);
+        }
+        PropVariantClear(&pv);
+        ps->Release();
+    }
+
     // activate client
     hr = m_device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
                              (void**)&m_audio_client);
@@ -306,9 +317,11 @@ void wasapi_output::open(audio_chunk::spec_t const & spec)
     if (FAILED(hr) || !m_render_client)
         { cleanup(); throw std::runtime_error("Get IAudioRenderClient"); }
 
-    // optional volume
-    m_device->Activate(__uuidof(IAudioEndpointVolume), CLSCTX_ALL, nullptr,
-                        (void**)&m_endpoint_volume);
+    // endpoint volume control (skip for Bluetooth — uses A2DP absolute volume)
+    if (!m_is_bluetooth) {
+        m_device->Activate(__uuidof(IAudioEndpointVolume), CLSCTX_ALL, nullptr,
+                            (void**)&m_endpoint_volume);
+    }
 
     hr = m_audio_client->Start();
     if (FAILED(hr)) { cleanup(); throw std::runtime_error("Start failed"); }
@@ -333,6 +346,15 @@ void wasapi_output::write(const audio_chunk & chunk)
     UINT32 ch = m_current_spec.chanCount;
     const audio_sample * src = chunk.get_data();
     size_t total = (size_t)frames * ch;
+
+    // Software volume scaling for Bluetooth (no hardware endpoint volume)
+    if (m_is_bluetooth && m_current_volume < 1.0) {
+        m_volume_buffer.set_size(total);
+        for (size_t i = 0; i < total; ++i) {
+            m_volume_buffer[i] = src[i] * (audio_sample)m_current_volume;
+        }
+        src = m_volume_buffer.get_ptr();
+    }
 
     if (m_bitdepth == 32 && m_is_float) {
         memcpy(buf, src, total * sizeof(audio_sample));
@@ -399,9 +421,14 @@ void wasapi_output::pause(bool s)
 
 void wasapi_output::volume_set(double db)
 {
-    if (!m_endpoint_volume) return;
-    float s = (db > -96.0f) ? powf(10.0f, (float)db / 20.0f) : 0.0f;
-    m_endpoint_volume->SetMasterVolumeLevelScalar(s, nullptr);
+    // Always convert dB to linear scalar and store
+    m_current_volume = (db > -96.0) ? powf(10.0f, (float)db / 20.0f) : 0.0f;
+
+    // Non-BT: use hardware endpoint volume
+    if (m_endpoint_volume) {
+        m_endpoint_volume->SetMasterVolumeLevelScalar((float)m_current_volume, nullptr);
+    }
+    // BT: volume scaling applied in write()
 }
 
 bool wasapi_output::is_progressing()
