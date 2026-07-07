@@ -65,6 +65,22 @@ msbuild foo_out_wasapi_x64.vcxproj /p:Configuration=Release /p:Platform=x64
 
 ---
 
+## 故障排除 Troubleshooting
+
+### 声音断裂 / 爆音 Stuttering / Crackling
+
+如果播放时出现声音断裂或爆音，请尝试增大 **Preferences → Playback → Output → Buffer length**（缓冲时间长度）：
+
+If you experience audio stuttering or crackling, try increasing the **Buffer length** setting under **Preferences → Playback → Output**.
+
+将缓冲时长从默认的 1000ms 增大到 2000ms~5000ms 通常可以解决。
+Increasing from the default 1000ms to 2000ms–5000ms usually resolves the issue.
+
+> **原因**：WASAPI 独占模式下缓冲区由驱动的周期决定，某些设备的周期很短（如 10ms），fb2k 的默认缓冲无法填满。增大缓冲时长让 fb2k 有更多余量。
+> **Why**: In exclusive mode the buffer is determined by the device driver's period; some devices use very short periods (e.g. 10ms). A larger buffer gives fb2k more headroom to avoid underruns.
+
+---
+
 ## 许可证 License
 
 MIT
